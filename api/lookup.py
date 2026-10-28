@@ -14,7 +14,7 @@ DEVELOPER = "𐙚 𓆩𝘼𝙠𝙖𝙨𝗵 𝙊𝙨𝙞𝙣𝙩𓆪𓂂🧑‍�
 # हमारी नई API का Key
 API_KEY = "DEMO"
 # नया गुप्त रास्ता (कोई guess नहीं कर सकता)
-SECRET_PATH = "/v1/tg-new-x8f2"
+SECRET_PATH = "/v1/tg-lookup-z9x7q2m"
 
 
 class handler(BaseHTTPRequestHandler):
