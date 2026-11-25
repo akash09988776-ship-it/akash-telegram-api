@@ -14,16 +14,16 @@ class handler(BaseHTTPRequestHandler):
         # 1. Custom API Key check
         if key != "DEMO":
             self.send_response(401)
-            self.send_header('Content-type', 'text/plain; charset=utf-8')
+            self.send_header('Content-type', 'application/json; charset=utf-8')
             self.end_headers()
-            self.wfile.write("Invalid API Key".encode('utf-8'))
+            self.wfile.write(json.dumps({"error": "Invalid API Key"}, ensure_ascii=False).encode('utf-8'))
             return
 
         if not query:
             self.send_response(400)
-            self.send_header('Content-type', 'text/plain; charset=utf-8')
+            self.send_header('Content-type', 'application/json; charset=utf-8')
             self.end_headers()
-            self.wfile.write("Missing 'query' parameter".encode('utf-8'))
+            self.wfile.write(json.dumps({"error": "Missing 'query' parameter"}, ensure_ascii=False).encode('utf-8'))
             return
 
         try:
@@ -39,9 +39,12 @@ class handler(BaseHTTPRequestHandler):
             # 3. Check data
             if not real_data.get("status") or "tg_id" not in real_data:
                 self.send_response(404)
-                self.send_header('Content-type', 'text/plain; charset=utf-8')
+                self.send_header('Content-type', 'application/json; charset=utf-8')
                 self.end_headers()
-                self.wfile.write("No data found for this Telegram ID.".encode('utf-8'))
+                self.wfile.write(json.dumps({
+                    "status": False, 
+                    "message": "No data found for this Telegram ID."
+                }, ensure_ascii=False).encode('utf-8'))
                 return
 
             # 4. Extract data
@@ -58,7 +61,7 @@ class handler(BaseHTTPRequestHandler):
                 country_code = "N/A"
                 country_name = "N/A"
 
-            # 5. Aapka custom format (Direct emojis)
+            # 5. Aapka custom format
             custom_response = (
                 f"🆔 𝗧𝗲𝗹𝗲𝗴𝗿𝗮𝗺 𝗜𝗗 • {tg_id}\n"
                 f"📞 𝗣𝗵𝗼𝗻𝗲 • {phone_number}\n"
@@ -67,15 +70,20 @@ class handler(BaseHTTPRequestHandler):
                 f"├ 🛠️ ᴅᴇᴠᴇʟᴏᴘᴇʀ: ᴀᴋᴀꜱʜ ᴏꜱɪɴᴛ • 🛰️"
             )
 
-            # 6. Direct Plain Text Response (No JSON)
+            # 6. JSON Response (Bot ke liye)
+            # ensure_ascii=False ka matlab hai emojis ko \ud83c mein convert mat karo
+            response_data = {
+                "status": True,
+                "response": custom_response
+            }
+            
             self.send_response(200)
-            self.send_header('Content-Type', 'text/plain; charset=utf-8')
-            self.send_header('Content-Length', str(len(custom_response.encode('utf-8'))))
+            self.send_header('Content-type', 'application/json; charset=utf-8')
             self.end_headers()
-            self.wfile.write(custom_response.encode('utf-8'))
+            self.wfile.write(json.dumps(response_data, ensure_ascii=False).encode('utf-8'))
 
         except Exception as e:
             self.send_response(500)
-            self.send_header('Content-type', 'text/plain; charset=utf-8')
+            self.send_header('Content-type', 'application/json; charset=utf-8')
             self.end_headers()
-            self.wfile.write(f"Error: {str(e)}".encode('utf-8'))
+            self.wfile.write(json.dumps({"status": False, "message": "Internal Server Error"}, ensure_ascii=False).encode('utf-8'))
