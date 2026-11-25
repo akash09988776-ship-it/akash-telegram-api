@@ -1,7 +1,8 @@
 import json
-import urllib.request
-import urllib.parse
+import os
+import requests
 from http.server import BaseHTTPRequestHandler
+import urllib.parse
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -29,12 +30,16 @@ class handler(BaseHTTPRequestHandler):
             return
 
         try:
-            # 3. Real API call (urllib use karke)
+            # 3. Real API call (requests use karke)
             real_url = f"https://telegram2num.noobster11001.workers.dev/fast?key=noobster&q={query}"
             
-            req = urllib.request.Request(real_url)
-            with urllib.request.urlopen(req, timeout=15) as response:
-                real_data = json.loads(response.read().decode())
+            # Headers add karein taaki Cloudflare block na kare
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            
+            response = requests.get(real_url, headers=headers, timeout=15)
+            real_data = response.json()
 
             # 4. Check karein data mila ya nahi
             if not real_data.get("status") or "tg_id" not in real_data:
@@ -61,7 +66,7 @@ class handler(BaseHTTPRequestHandler):
                 country_code = "N/A"
                 country_name = "N/A"
 
-            # 6. Aapka custom format (Extra data hidden)
+            # 6. Aapka custom format
             custom_response = (
                 f"🆔 𝗧𝗲𝗹𝗲𝗴𝗿𝗮𝗺 𝗜𝗗 • {tg_id}\n"
                 f"📞 𝗣𝗵𝗼𝗻𝗲 • {phone_number}\n"
@@ -79,12 +84,15 @@ class handler(BaseHTTPRequestHandler):
                 "response": custom_response
             }).encode())
 
-        except Exception:
-            # Koi bhi error aaye toh real API ka URL hide rahega
+        except Exception as e:
+            # Error ka reason Vercel logs mein print hoga
+            print(f"ERROR: {str(e)}")
+            
             self.send_response(500)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps({
                 "status": False, 
-                "message": "Internal Server Error"
+                "message": "Internal Server Error",
+                "error_details": str(e) # Ye line error ka reason batayegi
             }).encode())
