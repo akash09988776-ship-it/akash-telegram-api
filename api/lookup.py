@@ -6,14 +6,11 @@ import re
 import os
 
 # ---------- CONFIGURATION ----------
-# ⚠️ Real API URL yahan hide hai (Response mein nahi jayega)
 REAL_API_URL = os.getenv("TG_API_URL", "https://telegram2num.noobster11001.workers.dev/fast")
 REAL_API_KEY = os.getenv("TG_API_KEY", "noobster")
 DEVELOPER = "𐙚 𓆩𝘼𝙠𝙖𝙨𝗵 𝙊𝙨𝙞𝙣𝙩𓆪𓂂🧑‍💻🎀⃤"
 
-# हमारी नई API का Key
 API_KEY = "DEMO"
-# नया गुप्त रास्ता
 SECRET_PATH = "/v1/tg-lookup-z9x7q2m"
 
 class handler(BaseHTTPRequestHandler):
@@ -28,17 +25,14 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
 
-        # 1. URL चेक
         if parsed.path != SECRET_PATH:
             self.wfile.write(json.dumps({"status": False, "error": "Invalid Key"}, indent=4).encode())
             return
 
-        # 2. API Key चेक
         if key != API_KEY:
             self.wfile.write(json.dumps({"status": False, "error": "Invalid Key"}, indent=4).encode())
             return
 
-        # 3. Query चेक
         if not raw_num:
             self.wfile.write(json.dumps({"status": False, "error": "Invalid Key"}, indent=4).encode())
             return
@@ -48,9 +42,8 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"status": False, "error": "No data found"}, indent=4).encode())
             return
 
-        # ---------- REAL API कॉल ----------
+        # ---------- REAL API CALL ----------
         try:
-            # Aapke real API ka format (&q= query ke liye)
             real_url = f"{REAL_API_URL}?key={REAL_API_KEY}&q={tg_id}"
             req = urllib.request.Request(real_url, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=20) as resp:
@@ -65,7 +58,6 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"status": False, "error": "No data found"}, indent=4).encode())
             return
 
-        # Parse Response
         result = self.parse_response(data, tg_id)
         
         if "error" in result and not result.get("Telegram ID"):
@@ -81,11 +73,10 @@ class handler(BaseHTTPRequestHandler):
             f"├ 🛠️ ᴅᴇᴠᴇʟᴏᴘᴇʀ: {DEVELOPER} • 🛰️"
         )
 
-        # Bot aur User dono ke liye Final Response
         final_response = {
             "status": True,
             "success": True,
-            "response": custom_text,       # Aapka emoji format
+            "response": custom_text,
             "Telegram ID": result.get('Telegram ID'),
             "Phone": result.get('Phone'),
             "Country": result.get('Country'),
@@ -99,31 +90,26 @@ class handler(BaseHTTPRequestHandler):
         if not isinstance(data, dict):
             return {"error": "No data found"}
 
-        status = data.get("status", "error")
-        inner = data.get("data", {})
+        # Naye API ke hisaab se direct fields check karein
+        phone_list = data.get("phone", [])
+        
+        if phone_list and len(phone_list) > 0:
+            phone_info = phone_list[0]
+            phone = phone_info.get("number")
+            country_code = phone_info.get("country_code")
+            country = phone_info.get("country")
+        else:
+            # Purane format ke liye fallback
+            phone = (data.get("Phone") or data.get("phone") or data.get("Number"))
+            country_code = (data.get("Country-Code") or data.get("Country Code") or data.get("country_code"))
+            country = data.get("Country") or data.get("country")
 
-        if status != "success" or not inner:
-            if "Phone" in data or "phone" in data or "tg_id" in data:
-                inner = data
-                status = "success"
-            else:
-                return {"status": False, "error": "No data found"}
-
-        phone = (inner.get("Owner≠Number") or inner.get("Owner\u2260Number")
-                 or inner.get("Phone") or inner.get("phone")
-                 or inner.get("number") or inner.get("Number"))
-
-        tg_id = (inner.get("TG -ID") or inner.get("TG-ID") or inner.get("TG ID")
-                 or inner.get("Telegram ID") or inner.get("tg_id") or query)
-
-        country_code = (inner.get("Country-Code") or inner.get("Country Code")
-                        or inner.get("country_code"))
-        country = inner.get("Country") or inner.get("country")
+        tg_id = data.get("tg_id") or query
 
         if not phone:
             return {"status": False, "error": "No data found"}
 
-        # Aapka diya hua Country Code Map
+        # Country Code Map
         country_map = {
             "+91": "India", "+880": "Bangladesh", "+92": "Pakistan",
             "+1": "United States/Canada", "+44": "United Kingdom",
@@ -153,24 +139,35 @@ class handler(BaseHTTPRequestHandler):
             "+421": "Slovakia",
         }
 
+        phone_str = re.sub(r"\D", "", str(phone).strip())
+
+        # 🔥 FIX: Agar API se country/code nahi aaya, toh phone number se guess karein
+        if not country_code:
+            for code, name in sorted(country_map.items(), key=lambda x: -len(re.sub(r"\D", "", x[0]))):
+                code_digits = re.sub(r"\D", "", code)
+                if phone_str.startswith(code_digits):
+                    country_code = code
+                    if not country:
+                        country = name
+                    break
+
         if not country and country_code:
             cc_digits = re.sub(r"\D", "", country_code)
-            sorted_codes = sorted(country_map.items(), key=lambda x: -len(re.sub(r"\D", "", x[0])))
-            for code, name in sorted_codes:
+            for code, name in sorted(country_map.items(), key=lambda x: -len(re.sub(r"\D", "", x[0]))):
                 if cc_digits.startswith(re.sub(r"\D", "", code)):
                     country = name
                     break
 
         if not country:
             country = "Unknown"
-
-        phone_str = re.sub(r"\D", "", str(phone).strip())
+        if not country_code:
+            country_code = "N/A"
 
         return {
             "Telegram ID": str(tg_id),
             "Phone": phone_str,
             "Country": country,
-            "Country Code": country_code or "N/A",
+            "Country Code": country_code,
             "developer": DEVELOPER
         }
 
